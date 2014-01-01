@@ -16,7 +16,7 @@ void hlog(unsigned int log_level, char* log_message)
 
   timeptr = gmtime(&t);
   strftime(log_date_and_time, sizeof(log_date_and_time), "%Y-%m-%d %H:%M:%S", timeptr);
-  log_date_and_time[sizeof(log_date_and_time) - 1] = '\0'; //TODO: Are we need this?
+  log_date_and_time[sizeof(log_date_and_time) - 1] = '\0'; // TODO: Are we need this?
   printf("[%s] ", log_date_and_time);
 
   switch (log_level) {
@@ -51,3 +51,7 @@ void inline hlog_debug(char* log_message)
 {
   hlog(LOG_DEBUG, log_message);
 }
+
+// TODO: daemonize
+// http://www.netzmafia.de/skripten/unix/linux-daemon-howto.html
+// http://codingfreak.blogspot.com/2012/03/daemon-izing-process-in-linux.html

@@ -57,7 +57,7 @@ int main()
   }
   if (uv_listen((uv_stream_t*) &server, 128, on_new_connection) != 0) {
     hlog_error("Cannot start listening");
-    //TODO: uv_err_name(uv_last_error(loop)));
+    // TODO: uv_err_name(uv_last_error(loop)));
     return 3;
   }
 
