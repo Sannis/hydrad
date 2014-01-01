@@ -1,5 +1,6 @@
 /* Hydra (c) 2013 Oleg Efimov */
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -8,8 +9,11 @@
 #define LOG_INFO  2
 #define LOG_DEBUG 3
 
-void hlog(unsigned int log_level, char* log_message)
+void hlog(unsigned int log_level, char* log_message, ...)
 {
+  va_list arguments;
+  va_start(arguments, log_message);
+
   char log_date_and_time[20];
   time_t t = time(0);
   struct tm *timeptr;
@@ -34,23 +38,15 @@ void hlog(unsigned int log_level, char* log_message)
       break;
   }
 
-  printf("%s\n", log_message);
+  printf(log_message, arguments);
+  printf("\n");
+
+  va_end(arguments);
 }
 
-void inline hlog_error(char* log_message)
-{
-  hlog(LOG_ERROR, log_message);
-}
-
-void inline hlog_info(char* log_message)
-{
-  hlog(LOG_INFO, log_message);
-}
-
-void inline hlog_debug(char* log_message)
-{
-  hlog(LOG_DEBUG, log_message);
-}
+#define hlog_error(log_message, ...) hlog(LOG_ERROR, log_message, ##__VA_ARGS__)
+#define hlog_info(log_message, ...)  hlog(LOG_INFO, log_message, ##__VA_ARGS__)
+#define hlog_debug(log_message, ...) hlog(LOG_DEBUG, log_message, ##__VA_ARGS__)
 
 // TODO: daemonize
 // http://www.netzmafia.de/skripten/unix/linux-daemon-howto.html

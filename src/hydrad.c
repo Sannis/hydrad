@@ -10,7 +10,7 @@
 
 void signal_handler(uv_signal_t *handle, int signum)
 {
-  hlog_info("SIGINT received, exiting");
+  hlog_info("Signal %d received, exiting", signum);
   uv_signal_stop(handle);
   exit(0);
 }
@@ -46,18 +46,19 @@ int main()
   uv_tcp_t server;
   uv_tcp_init(loop, &server);
 
+  int err;
+
   struct sockaddr_in address;
-  if (uv_ip4_addr("0.0.0.0", HYDRAD_PORT, &address) != 0) {
-    hlog_error("Wrong socket address");
+  if ((err = uv_ip4_addr("0.0.0.0", HYDRAD_PORT, &address)) != 0) {
+    hlog_error("Wrong socket address: %s", uv_err_name(err));
     return 1;
   }
-  if (uv_tcp_bind(&server, (struct sockaddr*)&address) != 0) {
-    hlog_error("Cannot bind server");
+  if ((err = uv_tcp_bind(&server, (struct sockaddr*)&address)) != 0) {
+    hlog_error("Cannot bind server: %s", uv_err_name(err));
     return 2;
   }
-  if (uv_listen((uv_stream_t*) &server, 128, on_new_connection) != 0) {
-    hlog_error("Cannot start listening");
-    // TODO: uv_err_name(uv_last_error(loop)));
+  if ((err = uv_listen((uv_stream_t*) &server, 128, on_new_connection)) != 0) {
+    hlog_error("Cannot start listening: %s", uv_err_name(err));
     return 3;
   }
 
