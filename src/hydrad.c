@@ -2,13 +2,14 @@
 
 #include <stdio.h>
 
+#include "util.h"
 #include "uv.h"
 
 int main()
 {
   uv_loop_t *loop = uv_loop_new();
 
-  printf("Now quitting.\n");
+  hlog_info("Now quitting");
   uv_run(loop, UV_RUN_DEFAULT);
 
   return 0;
