@@ -1,5 +1,5 @@
 
-all: ./build ./webclient ./webserver
+all: ./build ./hydrad
 
 ./deps/libuv:
 	git clone --depth 1 git://github.com/joyent/libuv.git ./deps/libuv
