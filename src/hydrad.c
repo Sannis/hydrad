@@ -17,6 +17,10 @@
 #define HYDRAD_EXIT_BIND    2
 #define HYDRAD_EXIT_LISTEN  3
 
+#define HYDRAD_ERROR_LOW_MEMORY     1
+#define HYDRAD_ERROR_BAD_REQUEST    2
+#define HYDRAD_ERROR_UNKNOWN_METHOD 3
+
 static uv_loop_t *uv_loop;
 
 static unsigned int request_num = 1;
@@ -24,13 +28,19 @@ static unsigned int request_num = 1;
 typedef struct {
   unsigned int request_num;
   uv_tcp_t client;
+
   buffer_t* request_buffer;
+  buffer_t* request_method_buffer;
+  buffer_t* request_params_buffer;
 } req_res_t;
 
 void signal_handler(uv_signal_t *handle, int signum);
 void on_new_connection(uv_stream_t *server, int status);
 void on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t* buf);
 void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t* buf);
+void process_request(req_res_t* req_res);
+void process_request_version(req_res_t* req_res);
+void send_error_response(req_res_t* req_res, unsigned int error_code, const char* error_message);
 void on_connection_close(uv_handle_t* handle);
 
 int main()
@@ -143,9 +153,54 @@ void on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf)
 
     hlog_debug("[req_res=%u] Full request (%d bytes): %s", req_res->request_num, buffer_length(req_res->request_buffer), buffer_string(req_res->request_buffer));
 
-    uv_close((uv_handle_t*)&req_res->client, on_connection_close);
+    process_request(req_res);
   }
   free(buf->base);
+}
+
+void process_request(req_res_t* req_res)
+{
+  // Split request into method and params
+  ssize_t space_position = buffer_indexof(req_res->request_buffer, " ");
+  if (space_position <= 0) {
+    send_error_response(req_res, HYDRAD_ERROR_BAD_REQUEST, "Wrong request: no space separator");
+    return;
+  }
+
+  req_res->request_method_buffer = buffer_slice(req_res->request_buffer, 0, space_position);
+  if (!req_res->request_method_buffer) {
+    send_error_response(req_res, HYDRAD_ERROR_LOW_MEMORY, "No memory");
+    return;
+  }
+
+  req_res->request_params_buffer = buffer_slice(req_res->request_buffer, space_position + 1, buffer_length(req_res->request_buffer));
+  if (!req_res->request_params_buffer) {
+    send_error_response(req_res, HYDRAD_ERROR_LOW_MEMORY, "No memory");
+    return;
+  }
+
+  hlog_debug("[req_res=%u] Request method (%d bytes): %s", req_res->request_num, buffer_length(req_res->request_method_buffer), buffer_string(req_res->request_method_buffer));
+  hlog_debug("[req_res=%u] Request params (%d bytes): %s", req_res->request_num, buffer_length(req_res->request_params_buffer), buffer_string(req_res->request_params_buffer));
+
+  // Handle request method
+  if (0 == strcmp(buffer_string(req_res->request_method_buffer), "version")) {
+    process_request_version(req_res);
+  } else {
+    send_error_response(req_res, HYDRAD_ERROR_UNKNOWN_METHOD, "Unknown method");
+  }
+}
+
+void process_request_version(req_res_t* req_res)
+{
+  hlog_info("[req_res=%u] Version %s", req_res->request_num, HYDRAD_VERSION);
+
+  uv_close((uv_handle_t*)&req_res->client, on_connection_close);
+}
+
+void send_error_response(req_res_t* req_res, unsigned int error_code, const char* error_message)
+{
+  hlog_error("[req_res=%u] Error response %u: %s", req_res->request_num, error_code, error_message);
+  uv_close((uv_handle_t*)&req_res->client, on_connection_close);
 }
 
 void on_connection_close(uv_handle_t* client)
@@ -155,5 +210,11 @@ void on_connection_close(uv_handle_t* client)
   hlog_debug("[req_res=%u] Connection closed", req_res->request_num);
 
   buffer_free(req_res->request_buffer);
+  if (req_res->request_method_buffer) {
+    buffer_free(req_res->request_method_buffer);
+  }
+  if (req_res->request_params_buffer) {
+    buffer_free(req_res->request_params_buffer);
+  }
   free(req_res);
 }
