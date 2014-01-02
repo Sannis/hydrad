@@ -23,6 +23,8 @@ void hlog(unsigned int log_level, char* log_message, ...)
   log_date_and_time[sizeof(log_date_and_time) - 1] = '\0'; // TODO: Are we need this?
   printf("[%s] ", log_date_and_time);
 
+  printf("[%d] ", getpid());
+
   switch (log_level) {
     case LOG_ERROR:
       printf("[ERROR] ");
