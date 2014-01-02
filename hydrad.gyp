@@ -12,7 +12,8 @@
         'deps/buffer',
       ],
       'dependencies': [
-        './deps/libuv/uv.gyp:libuv'
+        'deps/libuv/uv.gyp:libuv',
+        'deps/yajl.gyp:yajl',
       ],
     }
   ],

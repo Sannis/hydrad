@@ -13,7 +13,10 @@ all: ./build ./hydrad
 ./deps/buffer:
 	git clone --depth 1 git@github.com:clibs/buffer.git ./deps/buffer
 
-./build: ./deps/gyp ./deps/libuv ./deps/buffer
+./deps/yajl:
+	git clone --depth 1 git@github.com:lloyd/yajl.git ./deps/yajl
+
+./build: ./deps/gyp ./deps/libuv ./deps/buffer ./deps/yajl
 	BUILDTYPE=${BUILDTYPE} deps/gyp/gyp --depth=. -Goutput_dir=./out -Icommon.gypi --generator-output=./build -Dlibrary=static_library -f make
 
 ./hydrad: src/hydrad.c src/util.h
