@@ -24,7 +24,15 @@
 
 static uv_loop_t *uv_loop;
 
-static unsigned int request_num = 1;
+typedef struct {
+  struct {
+    unsigned int total_count;
+    unsigned int failed_count;
+    unsigned int error_count;
+  } requests;
+} hydra_daemon_t;
+
+static hydra_daemon_t H;
 
 typedef struct {
   unsigned int request_num;
@@ -46,6 +54,7 @@ void on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t* buf);
 void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t* buf);
 void process_request(req_res_t* req_res);
 void process_request_version(req_res_t* req_res);
+void process_request_stats(req_res_t* req_res);
 void send_error_response(req_res_t* req_res, unsigned int error_code, char* error_message);
 void send_response(req_res_t* req_res);
 void after_response_sent(uv_write_t* req, int status);
@@ -97,8 +106,11 @@ void signal_handler(uv_signal_t *handle, int signum)
 
 void on_new_connection(uv_stream_t *server, int status)
 {
+  unsigned int request_num = __sync_add_and_fetch(&H.requests.total_count, 1);
+
   if (status != 0) {
-    hlog_error("Cannot handle new connection: %s", uv_err_name(status));
+    __sync_add_and_fetch(&H.requests.failed_count, 1);
+    hlog_error("[req_res=%u] Cannot handle new connection: %s", request_num, uv_err_name(status));
     return;
   }
 
@@ -106,9 +118,8 @@ void on_new_connection(uv_stream_t *server, int status)
 
   req_res_t* req_res = (req_res_t*)malloc(sizeof(req_res_t));
   req_res->request_num = request_num;
-  request_num++;
 
-  hlog_debug("[req_res=%u] New connection", req_res->request_num);
+  hlog_debug("[req_res=%u] Init new connection", req_res->request_num);
 
   uv_tcp_init(uv_loop, &req_res->client);
   req_res->client.data = req_res;
@@ -116,6 +127,7 @@ void on_new_connection(uv_stream_t *server, int status)
   // TODO: Causes segfault, possible libuv bug
   //if (!(req_res->request_buffer = 0)) {
   if (!(req_res->request_buffer = buffer_new())) {
+    __sync_add_and_fetch(&H.requests.failed_count, 1);
     hlog_error("[req_res=%u] Cannot create request_buffer with buffer_new()", req_res->request_num);
     uv_close((uv_handle_t*)&req_res->client, NULL);
     free(req_res);
@@ -123,6 +135,7 @@ void on_new_connection(uv_stream_t *server, int status)
   }
 
   if ((err = uv_accept(server, (uv_stream_t*)&req_res->client)) != 0) {
+    __sync_add_and_fetch(&H.requests.failed_count, 1);
     hlog_error("[req_res=%u] Cannot accept connection: %s", req_res->request_num, uv_err_name(err));
     uv_close((uv_handle_t*)&req_res->client, NULL);
     buffer_free(req_res->request_buffer);
@@ -131,6 +144,7 @@ void on_new_connection(uv_stream_t *server, int status)
   }
 
   if ((err = uv_read_start((uv_stream_t*)&req_res->client, alloc_buffer, on_read)) != 0) {
+    __sync_add_and_fetch(&H.requests.failed_count, 1);
     hlog_error("[req_res=%u] Cannot start reading data from client: %s", req_res->request_num, uv_err_name(err));
     uv_close((uv_handle_t*)&req_res->client, NULL);
     buffer_free(req_res->request_buffer);
@@ -154,6 +168,7 @@ void on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf)
     buffer_append(req_res->request_buffer, buf->base);
   } else {
     if (nread != UV_EOF) {
+     // TODO: How to handle this case?
       hlog_error("[req_res=%u] Not EOF, read error: %s", req_res->request_num, uv_err_name(nread));
     } else {
       hlog_debug("[req_res=%u] EOF", req_res->request_num);
@@ -193,6 +208,8 @@ void process_request(req_res_t* req_res)
   // Handle request method
   if (0 == strcmp(buffer_string(req_res->request_method_buffer), "version")) {
     process_request_version(req_res);
+  } else if (0 == strcmp(buffer_string(req_res->request_method_buffer), "stats")) {
+    process_request_stats(req_res);
   } else {
     send_error_response(req_res, HYDRAD_ERROR_UNKNOWN_METHOD, "Unknown method");
   }
@@ -217,8 +234,36 @@ void process_request_version(req_res_t* req_res)
   send_response(req_res);
 }
 
+void process_request_stats(req_res_t* req_res)
+{
+  yajl_gen response_generator = yajl_gen_alloc(NULL);
+  yajl_gen_map_open(response_generator);
+  yajl_gen_string(response_generator, (const unsigned char *)"requests", strlen("requests"));
+  yajl_gen_map_open(response_generator);
+  yajl_gen_string(response_generator, (const unsigned char *)"total_count", strlen("total_count"));
+  yajl_gen_integer(response_generator, H.requests.total_count);
+  yajl_gen_string(response_generator, (const unsigned char *)"failed_count", strlen("failed_count"));
+  yajl_gen_integer(response_generator, H.requests.failed_count);
+  yajl_gen_string(response_generator, (const unsigned char *)"error_count", strlen("error_count"));
+  yajl_gen_integer(response_generator, H.requests.error_count);
+  yajl_gen_map_close(response_generator);
+  yajl_gen_map_close(response_generator);
+  {
+    unsigned char *buf;
+    size_t len;
+
+    yajl_gen_get_buf(response_generator, (const unsigned char **)&buf, &len);
+    req_res->response_buffer = buffer_new_with_copy((char *)buf/*, len*/);
+  }
+  yajl_gen_clear(response_generator);
+
+  send_response(req_res);
+}
+
 void send_error_response(req_res_t* req_res, unsigned int error_code, char* error_message)
 {
+  __sync_add_and_fetch(&H.requests.error_count, 1);
+
   yajl_gen response_generator = yajl_gen_alloc(NULL);
   yajl_gen_map_open(response_generator);
   yajl_gen_string(response_generator, (const unsigned char *)"error_code", strlen("error_code"));
