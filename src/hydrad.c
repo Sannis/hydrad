@@ -47,8 +47,8 @@ void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t* buf)
 
 void on_new_connection(uv_stream_t *server, int status)
 {
-  if (status == -1) {
-    // TODO: Check libuv sources for this case
+  if (status != 0) {
+    hlog_error("Cannot handle new connection: %s", uv_err_name(status));
     return;
   }
 
