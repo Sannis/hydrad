@@ -5,6 +5,7 @@
 
 #include "util.h"
 #include "uv.h"
+#include "buffer.h"
 
 #define HYDRAD_PORT 8888
 #define HYDRAD_BACKLOG 128
