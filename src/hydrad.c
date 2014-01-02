@@ -7,6 +7,8 @@
 #include "uv.h"
 #include "buffer.h"
 
+#define HYDRAD_VERSION "0.0.1"
+
 #define HYDRAD_PORT 8888
 #define HYDRAD_BACKLOG 128
 
@@ -22,6 +24,7 @@ static unsigned int request_num = 1;
 typedef struct {
   unsigned int request_num;
   uv_tcp_t request;
+  buffer_t* request_buffer;
 } req_res_t;
 
 void signal_handler(uv_signal_t *handle, int signum);
@@ -92,9 +95,19 @@ void on_new_connection(uv_stream_t *server, int status)
   uv_tcp_init(uv_loop, &req_res->request);
   req_res->request.data = req_res;
 
+  // TODO: Causes segfault, possible libuv bug
+  //if (!(req_res->request_buffer = 0)) {
+  if (!(req_res->request_buffer = buffer_new())) {
+    hlog_error("[req_res=%u] Cannot create request_buffer with buffer_new()", req_res->request_num);
+    uv_close((uv_handle_t*)&req_res->request, NULL);
+    free(req_res);
+    return;
+  }
+
   if ((err = uv_accept(server, (uv_stream_t*)&req_res->request)) != 0) {
     hlog_error("[req_res=%u] Cannot accept connection: %s", req_res->request_num, uv_err_name(err));
     uv_close((uv_handle_t*)&req_res->request, NULL);
+    buffer_free(req_res->request_buffer);
     free(req_res);
     return;
   }
@@ -102,6 +115,7 @@ void on_new_connection(uv_stream_t *server, int status)
   if ((err = uv_read_start((uv_stream_t*)&req_res->request, alloc_buffer, on_read)) != 0) {
     hlog_error("[req_res=%u] Cannot start reading data from client: %s", req_res->request_num, uv_err_name(err));
     uv_close((uv_handle_t*)&req_res->request, NULL);
+    buffer_free(req_res->request_buffer);
     free(req_res);
     return;
   }
@@ -117,14 +131,18 @@ void on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf)
   req_res_t* req_res = (req_res_t*)client->data;
 
   if (nread >= 0) {
-    hlog_debug("[req_res=%u] Read bytes count: %d", req_res->request_num, nread);
-    hlog_debug("[req_res=%u] Read bytes string: %s", req_res->request_num, buf->base);
+    hlog_debug("[req_res=%u] Read %d bytes: %s", req_res->request_num, nread, buf->base);
+
+    buffer_append(req_res->request_buffer, buf->base);
   } else {
     if (nread != UV_EOF) {
       hlog_error("[req_res=%u] Not EOF, read error: %s", req_res->request_num, uv_err_name(nread));
     } else {
-      hlog_debug("[req_res=%u] EOF, closing connection", req_res->request_num);
+      hlog_debug("[req_res=%u] EOF", req_res->request_num);
     }
+
+    hlog_debug("[req_res=%u] Full request (%d bytes): %s", req_res->request_num, buffer_length(req_res->request_buffer), buffer_string(req_res->request_buffer));
+
     uv_close((uv_handle_t*)&req_res->request, on_connection_close);
   }
   free(buf->base);
@@ -136,5 +154,6 @@ void on_connection_close(uv_handle_t* client)
 
   hlog_debug("[req_res=%u] Connection closed", req_res->request_num);
 
+  buffer_free(req_res->request_buffer);
   free(req_res);
 }
