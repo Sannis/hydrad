@@ -1,4 +1,7 @@
 
+# Specify BUILDTYPE=Release on the command line for a release build.
+BUILDTYPE ?= Release
+
 all: ./build ./hydrad
 
 ./deps/gyp:
@@ -11,19 +14,19 @@ all: ./build ./hydrad
 	git clone --depth 1 git@github.com:clibs/buffer.git ./deps/buffer
 
 ./build: ./deps/gyp ./deps/libuv ./deps/buffer
-	deps/gyp/gyp --depth=. -Goutput_dir=./out -Icommon.gypi --generator-output=./build -Dlibrary=static_library -f make
+	BUILDTYPE=${BUILDTYPE} deps/gyp/gyp --depth=. -Goutput_dir=./out -Icommon.gypi --generator-output=./build -Dlibrary=static_library -f make
 
 ./hydrad: src/hydrad.c src/util.h
-	make -C ./build/ hydrad
-	cp ./build/out/Release/hydrad ./hydrad
+	BUILDTYPE=${BUILDTYPE} make -C ./build/ hydrad
+	cp ./build/out/${BUILDTYPE}/hydrad ./hydrad
 
 distclean:
 	make clean
 	rm -rf ./build
 
 clean:
-	rm -rf ./build/out/Release/obj.target/hydrad/
-	rm -f ./build/out/Release/hydrad
+	rm -rf ./build/out/${BUILDTYPE}/obj.target/hydrad/
+	rm -f ./build/out/${BUILDTYPE}/hydrad
 	rm -f ./hydrad
 
 .PHONY: test
