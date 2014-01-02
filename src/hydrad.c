@@ -28,11 +28,14 @@ static unsigned int request_num = 1;
 
 typedef struct {
   unsigned int request_num;
+
   uv_tcp_t client;
 
   buffer_t* request_buffer;
   buffer_t* request_method_buffer;
   buffer_t* request_params_buffer;
+
+  uv_write_t write_req;
 
   buffer_t* response_buffer;
 } req_res_t;
@@ -45,6 +48,7 @@ void process_request(req_res_t* req_res);
 void process_request_version(req_res_t* req_res);
 void send_error_response(req_res_t* req_res, unsigned int error_code, char* error_message);
 void send_response(req_res_t* req_res);
+void after_response_sent(uv_write_t* req, int status);
 void on_connection_close(uv_handle_t* handle);
 
 int main()
@@ -236,9 +240,30 @@ void send_error_response(req_res_t* req_res, unsigned int error_code, char* erro
 
 void send_response(req_res_t* req_res)
 {
-  hlog_info("[req_res=%u] Response (%d bytes): %s", req_res->request_num, buffer_length(req_res->response_buffer), buffer_string(req_res->response_buffer));
+  hlog_debug("[req_res=%u] Response (%d bytes): %s", req_res->request_num, buffer_length(req_res->response_buffer), buffer_string(req_res->response_buffer));
 
-  uv_close((uv_handle_t*)&req_res->client, on_connection_close);
+  uv_buf_t buf = uv_buf_init(buffer_string(req_res->response_buffer), buffer_length(req_res->response_buffer));
+
+  req_res->write_req.data = req_res;
+
+  int err = uv_write(&req_res->write_req, (uv_stream_t*)&req_res->client, &buf, 1, after_response_sent);
+  if (err != 0) {
+    hlog_error("[req_res=%u] Cannot start writing response", req_res->request_num);
+    uv_close((uv_handle_t*)&req_res->client, on_connection_close);
+  }
+}
+
+void after_response_sent(uv_write_t* req, int status)
+{
+  req_res_t* req_res = (req_res_t*)req->data;
+
+  if (status != 0) {
+    hlog_error("[req_res=%u] Cannot write response chunk", req_res->request_num, uv_err_name(status));
+  }
+
+  if (!uv_is_closing((uv_handle_t*)&req_res->client)) {
+      uv_close((uv_handle_t*)&req_res->client, on_connection_close);
+  }
 }
 
 void on_connection_close(uv_handle_t* client)
