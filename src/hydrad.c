@@ -6,6 +6,7 @@
 #include "util.h"
 #include "uv.h"
 #include "buffer.h"
+#include "yajl/yajl_gen.h"
 
 #define HYDRAD_VERSION "0.0.1"
 
@@ -32,6 +33,8 @@ typedef struct {
   buffer_t* request_buffer;
   buffer_t* request_method_buffer;
   buffer_t* request_params_buffer;
+
+  buffer_t* response_buffer;
 } req_res_t;
 
 void signal_handler(uv_signal_t *handle, int signum);
@@ -40,7 +43,8 @@ void on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t* buf);
 void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t* buf);
 void process_request(req_res_t* req_res);
 void process_request_version(req_res_t* req_res);
-void send_error_response(req_res_t* req_res, unsigned int error_code, const char* error_message);
+void send_error_response(req_res_t* req_res, unsigned int error_code, char* error_message);
+void send_response(req_res_t* req_res);
 void on_connection_close(uv_handle_t* handle);
 
 int main()
@@ -163,7 +167,7 @@ void process_request(req_res_t* req_res)
   // Split request into method and params
   ssize_t space_position = buffer_indexof(req_res->request_buffer, " ");
   if (space_position <= 0) {
-    send_error_response(req_res, HYDRAD_ERROR_BAD_REQUEST, "Wrong request: no space separator");
+    send_error_response(req_res, HYDRAD_ERROR_BAD_REQUEST, "Bad request");
     return;
   }
 
@@ -192,14 +196,48 @@ void process_request(req_res_t* req_res)
 
 void process_request_version(req_res_t* req_res)
 {
-  hlog_info("[req_res=%u] Version %s", req_res->request_num, HYDRAD_VERSION);
+  yajl_gen response_generator = yajl_gen_alloc(NULL);
+  yajl_gen_map_open(response_generator);
+  yajl_gen_string(response_generator, (const unsigned char *)"version", strlen("version"));
+  yajl_gen_string(response_generator, (const unsigned char *)HYDRAD_VERSION, strlen(HYDRAD_VERSION));
+  yajl_gen_map_close(response_generator);
+  {
+    unsigned char *buf;
+    size_t len;
 
-  uv_close((uv_handle_t*)&req_res->client, on_connection_close);
+    yajl_gen_get_buf(response_generator, (const unsigned char **)&buf, &len);
+    req_res->response_buffer = buffer_new_with_copy((char *)buf/*, len*/);
+  }
+  yajl_gen_clear(response_generator);
+
+  send_response(req_res);
 }
 
-void send_error_response(req_res_t* req_res, unsigned int error_code, const char* error_message)
+void send_error_response(req_res_t* req_res, unsigned int error_code, char* error_message)
 {
-  hlog_error("[req_res=%u] Error response %u: %s", req_res->request_num, error_code, error_message);
+  yajl_gen response_generator = yajl_gen_alloc(NULL);
+  yajl_gen_map_open(response_generator);
+  yajl_gen_string(response_generator, (const unsigned char *)"error_code", strlen("error_code"));
+  yajl_gen_integer(response_generator, error_code);
+  yajl_gen_string(response_generator, (const unsigned char *)"error_message", strlen("error_message"));
+  yajl_gen_string(response_generator, (const unsigned char *)error_message, strlen(error_message));
+  yajl_gen_map_close(response_generator);
+  {
+    unsigned char *buf;
+    size_t len;
+
+    yajl_gen_get_buf(response_generator, (const unsigned char **)&buf, &len);
+    req_res->response_buffer = buffer_new_with_copy((char *)buf/*, len*/);
+  }
+  yajl_gen_clear(response_generator);
+
+  send_response(req_res);
+}
+
+void send_response(req_res_t* req_res)
+{
+  hlog_info("[req_res=%u] Response (%d bytes): %s", req_res->request_num, buffer_length(req_res->response_buffer), buffer_string(req_res->response_buffer));
+
   uv_close((uv_handle_t*)&req_res->client, on_connection_close);
 }
 
@@ -215,6 +253,9 @@ void on_connection_close(uv_handle_t* client)
   }
   if (req_res->request_params_buffer) {
     buffer_free(req_res->request_params_buffer);
+  }
+  if (req_res->response_buffer) {
+    buffer_free(req_res->response_buffer);
   }
   free(req_res);
 }
