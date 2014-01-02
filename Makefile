@@ -10,7 +10,7 @@ all: ./build ./hydrad
 ./build: ./deps/gyp ./deps/libuv
 	deps/gyp/gyp --depth=. -Goutput_dir=./out -Icommon.gypi --generator-output=./build -Dlibrary=static_library -f make
 
-./hydrad: src/hydrad.c
+./hydrad: src/hydrad.c src/util.h
 	make -C ./build/ hydrad
 	cp ./build/out/Release/hydrad ./hydrad
 
