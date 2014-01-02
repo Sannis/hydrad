@@ -90,23 +90,25 @@ void on_new_connection(uv_stream_t *server, int status)
   }
 }
 
-void on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t* buf)
-{
-  hlog_debug("Read bytes: %d", nread);
-  if (nread >= 0) {
-    //
-  } else {
-    if (nread != UV_EOF) {
-      //UVERR(nread, "read");
-    }
-    uv_close((uv_handle_t*)tcp, on_connection_close);
-  }
-  free(buf->base);
-}
-
 void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t* buf)
 {
     *buf = uv_buf_init((char*)malloc(suggested_size), suggested_size);
+}
+
+void on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf)
+{
+  if (nread >= 0) {
+    hlog_debug("Read bytes count: %d", nread);
+    hlog_debug("Read bytes string: %s", buf->base);
+  } else {
+    if (nread != UV_EOF) {
+      hlog_error("Not EOF, read error: %s", uv_err_name(nread));
+    } else {
+      hlog_debug("EOF, closing connection");
+    }
+    uv_close((uv_handle_t*)client, on_connection_close);
+  }
+  free(buf->base);
 }
 
 void on_connection_close(uv_handle_t* handle)
