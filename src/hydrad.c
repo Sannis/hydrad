@@ -7,12 +7,18 @@
 #include "uv.h"
 
 #define HYDRAD_PORT 8888
+#define HYDRAD_BACKLOG 128
+
+#define HYDRAD_EXIT_SUCCESS 0
+#define HYDRAD_EXIT_ADDRESS 1
+#define HYDRAD_EXIT_BIND    2
+#define HYDRAD_EXIT_LISTEN  3
 
 void signal_handler(uv_signal_t *handle, int signum)
 {
   hlog_info("Signal %d received, exiting", signum);
   uv_signal_stop(handle);
-  exit(0);
+  exit(HYDRAD_EXIT_SUCCESS);
 }
 
 void on_connection_close(uv_handle_t* handle)
@@ -85,19 +91,19 @@ int main()
   struct sockaddr_in address;
   if ((err = uv_ip4_addr("0.0.0.0", HYDRAD_PORT, &address)) != 0) {
     hlog_error("Wrong socket address: %s", uv_err_name(err));
-    return 1;
+    return HYDRAD_EXIT_ADDRESS;
   }
   if ((err = uv_tcp_bind(&server, (struct sockaddr*)&address)) != 0) {
     hlog_error("Cannot bind server: %s", uv_err_name(err));
-    return 2;
+    return HYDRAD_EXIT_BIND;
   }
-  if ((err = uv_listen((uv_stream_t*) &server, 128, on_new_connection)) != 0) {
+  if ((err = uv_listen((uv_stream_t*)&server, HYDRAD_BACKLOG, on_new_connection)) != 0) {
     hlog_error("Cannot start listening: %s", uv_err_name(err));
-    return 3;
+    return HYDRAD_EXIT_LISTEN;
   }
 
   hlog_info("Enter event loop");
   uv_run(loop, UV_RUN_DEFAULT);
 
-  return 0;
+  return HYDRAD_EXIT_SUCCESS;
 }
