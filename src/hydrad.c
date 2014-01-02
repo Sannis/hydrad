@@ -14,6 +14,15 @@
 #define HYDRAD_EXIT_BIND    2
 #define HYDRAD_EXIT_LISTEN  3
 
+static uv_loop_t *uv_loop;
+
+static unsigned int request_num = 1;
+
+typedef struct {
+  unsigned int request_num;
+  uv_tcp_t request;
+} req_res_t;
+
 void signal_handler(uv_signal_t *handle, int signum);
 void on_new_connection(uv_stream_t *server, int status);
 void on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t* buf);
@@ -24,17 +33,18 @@ int main()
 {
   hlog_info("Starting...");
 
-  uv_loop_t *loop = uv_default_loop();
+  uv_loop = uv_default_loop();
+
   int err;
 
   hlog_info("Init signal handler...");
   uv_signal_t signal;
-  uv_signal_init(loop, &signal);
+  uv_signal_init(uv_loop, &signal);
   uv_signal_start(&signal, signal_handler, SIGINT);
 
   hlog_info("Init server...");
   uv_tcp_t server;
-  uv_tcp_init(loop, &server);
+  uv_tcp_init(uv_loop, &server);
 
   struct sockaddr_in address;
   if ((err = uv_ip4_addr("0.0.0.0", HYDRAD_PORT, &address)) != 0) {
@@ -51,7 +61,7 @@ int main()
   }
 
   hlog_info("Enter event loop");
-  uv_run(loop, UV_RUN_DEFAULT);
+  uv_run(uv_loop, UV_RUN_DEFAULT);
 
   return HYDRAD_EXIT_SUCCESS;
 }
@@ -70,22 +80,28 @@ void on_new_connection(uv_stream_t *server, int status)
     return;
   }
 
-  uv_loop_t *loop = uv_default_loop();
   int err;
 
-  hlog_debug("New connection");
+  req_res_t* req_res = (req_res_t*)malloc(sizeof(req_res_t));
+  req_res->request_num = request_num;
+  request_num++;
 
-  uv_tcp_t *client = (uv_tcp_t*)malloc(sizeof(uv_tcp_t));
-  uv_tcp_init(loop, client);
-  if ((err = uv_accept(server, (uv_stream_t*) client)) != 0) {
-    hlog_error("Cannot accept connection: %s", uv_err_name(err));
-    uv_close((uv_handle_t*)client, NULL);
+  hlog_debug("[req_res=%u] New connection", req_res->request_num);
+
+  uv_tcp_init(uv_loop, &req_res->request);
+  req_res->request.data = req_res;
+
+  if ((err = uv_accept(server, (uv_stream_t*)&req_res->request)) != 0) {
+    hlog_error("[req_res=%u] Cannot accept connection: %s", req_res->request_num, uv_err_name(err));
+    uv_close((uv_handle_t*)&req_res->request, NULL);
+    free(req_res);
     return;
   }
 
-  if ((err = uv_read_start((uv_stream_t*)client, alloc_buffer, on_read)) != 0) {
-    hlog_error("Cannot start reading data from client: %s", uv_err_name(err));
-    uv_close((uv_handle_t*)client, NULL);
+  if ((err = uv_read_start((uv_stream_t*)&req_res->request, alloc_buffer, on_read)) != 0) {
+    hlog_error("[req_res=%u] Cannot start reading data from client: %s", req_res->request_num, uv_err_name(err));
+    uv_close((uv_handle_t*)&req_res->request, NULL);
+    free(req_res);
     return;
   }
 }
@@ -97,21 +113,27 @@ void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t* buf)
 
 void on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf)
 {
+  req_res_t* req_res = (req_res_t*)client->data;
+
   if (nread >= 0) {
-    hlog_debug("Read bytes count: %d", nread);
-    hlog_debug("Read bytes string: %s", buf->base);
+    hlog_debug("[req_res=%u] Read bytes count: %d", req_res->request_num, nread);
+    hlog_debug("[req_res=%u] Read bytes string: %s", req_res->request_num, buf->base);
   } else {
     if (nread != UV_EOF) {
-      hlog_error("Not EOF, read error: %s", uv_err_name(nread));
+      hlog_error("[req_res=%u] Not EOF, read error: %s", req_res->request_num, uv_err_name(nread));
     } else {
-      hlog_debug("EOF, closing connection");
+      hlog_debug("[req_res=%u] EOF, closing connection", req_res->request_num);
     }
-    uv_close((uv_handle_t*)client, on_connection_close);
+    uv_close((uv_handle_t*)&req_res->request, on_connection_close);
   }
   free(buf->base);
 }
 
-void on_connection_close(uv_handle_t* handle)
+void on_connection_close(uv_handle_t* client)
 {
-  hlog_debug("Connection closed");
+  req_res_t* req_res = (req_res_t*)client->data;
+
+  hlog_debug("[req_res=%u] Connection closed", req_res->request_num);
+
+  free(req_res);
 }
