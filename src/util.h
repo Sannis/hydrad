@@ -40,7 +40,7 @@ void hlog(unsigned int log_level, char* log_message, ...)
       break;
   }
 
-  printf(log_message, arguments);
+  vprintf(log_message, arguments);
   printf("\n");
 
   va_end(arguments);
