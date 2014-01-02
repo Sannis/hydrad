@@ -23,7 +23,7 @@ static unsigned int request_num = 1;
 
 typedef struct {
   unsigned int request_num;
-  uv_tcp_t request;
+  uv_tcp_t client;
   buffer_t* request_buffer;
 } req_res_t;
 
@@ -92,29 +92,29 @@ void on_new_connection(uv_stream_t *server, int status)
 
   hlog_debug("[req_res=%u] New connection", req_res->request_num);
 
-  uv_tcp_init(uv_loop, &req_res->request);
-  req_res->request.data = req_res;
+  uv_tcp_init(uv_loop, &req_res->client);
+  req_res->client.data = req_res;
 
   // TODO: Causes segfault, possible libuv bug
   //if (!(req_res->request_buffer = 0)) {
   if (!(req_res->request_buffer = buffer_new())) {
     hlog_error("[req_res=%u] Cannot create request_buffer with buffer_new()", req_res->request_num);
-    uv_close((uv_handle_t*)&req_res->request, NULL);
+    uv_close((uv_handle_t*)&req_res->client, NULL);
     free(req_res);
     return;
   }
 
-  if ((err = uv_accept(server, (uv_stream_t*)&req_res->request)) != 0) {
+  if ((err = uv_accept(server, (uv_stream_t*)&req_res->client)) != 0) {
     hlog_error("[req_res=%u] Cannot accept connection: %s", req_res->request_num, uv_err_name(err));
-    uv_close((uv_handle_t*)&req_res->request, NULL);
+    uv_close((uv_handle_t*)&req_res->client, NULL);
     buffer_free(req_res->request_buffer);
     free(req_res);
     return;
   }
 
-  if ((err = uv_read_start((uv_stream_t*)&req_res->request, alloc_buffer, on_read)) != 0) {
+  if ((err = uv_read_start((uv_stream_t*)&req_res->client, alloc_buffer, on_read)) != 0) {
     hlog_error("[req_res=%u] Cannot start reading data from client: %s", req_res->request_num, uv_err_name(err));
-    uv_close((uv_handle_t*)&req_res->request, NULL);
+    uv_close((uv_handle_t*)&req_res->client, NULL);
     buffer_free(req_res->request_buffer);
     free(req_res);
     return;
@@ -143,7 +143,7 @@ void on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf)
 
     hlog_debug("[req_res=%u] Full request (%d bytes): %s", req_res->request_num, buffer_length(req_res->request_buffer), buffer_string(req_res->request_buffer));
 
-    uv_close((uv_handle_t*)&req_res->request, on_connection_close);
+    uv_close((uv_handle_t*)&req_res->client, on_connection_close);
   }
   free(buf->base);
 }
