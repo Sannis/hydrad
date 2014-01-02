@@ -22,12 +22,12 @@
       ],
       'direct_dependent_settings': {
         'include_dirs': [
-          'yajl/include/',
+          '../build/yajl_include/yajl/include/',
         ]
       },
       'include_dirs': [
         'yajl/src',
-        'yajl/include',
+        '../build/yajl_include/yajl/include',
       ],
     },
     {
@@ -35,7 +35,7 @@
       'type': 'none',
       'copies': [
         {
-          'destination': 'yajl/include/yajl',
+          'destination': '../build/yajl_include/yajl/include/yajl',
           'files': [
             'yajl/src/api/yajl_common.h',
             'yajl/src/api/yajl_gen.h',
@@ -58,7 +58,7 @@
             'yajl/src/api/yajl_version.h.cmake'
           ],
           'outputs': [
-            'yajl/include/yajl/yajl_version.h',
+            '../build/yajl_include/yajl/include/yajl/yajl_version.h',
           ],
           'action': [
             'python',

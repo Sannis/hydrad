@@ -15,8 +15,8 @@ all: ./deps ./build ./hydrad
 	cp ./build/out/${BUILDTYPE}/hydrad ./hydrad
 
 distclean:
-	make clean
 	rm -rf ./build
+	rm -f ./hydrad
 
 clean:
 	rm -rf ./build/out/${BUILDTYPE}/obj.target/hydrad/
