@@ -8,7 +8,7 @@
 #include "buffer.h"
 #include "yajl/yajl_gen.h"
 
-#define HYDRAD_VERSION "0.0.1"
+#define HYDRAD_VERSION "0.0.1-dev"
 
 #define HYDRAD_PORT 8888
 #define HYDRAD_BACKLOG 128
@@ -52,9 +52,11 @@ void signal_handler(uv_signal_t *handle, int signum);
 void on_new_connection(uv_stream_t *server, int status);
 void on_read(uv_stream_t* tcp, ssize_t nread, const uv_buf_t* buf);
 void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t* buf);
+
 void process_request(req_res_t* req_res);
 void process_request_version(req_res_t* req_res);
 void process_request_stats(req_res_t* req_res);
+
 void send_error_response(req_res_t* req_res, unsigned int error_code, char* error_message);
 void send_response(req_res_t* req_res);
 void after_response_sent(uv_write_t* req, int status);
