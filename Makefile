@@ -14,6 +14,9 @@ all: ./deps ./build ./hydrad
 	BUILDTYPE=${BUILDTYPE} make -C ./build/ hydrad
 	cp ./build/out/${BUILDTYPE}/hydrad ./hydrad
 
+test:
+	python ./tests/all.py
+
 distclean:
 	rm -rf ./build
 	rm -f ./hydrad
