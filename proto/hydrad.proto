@@ -1,0 +1,20 @@
+package hydrad;
+
+message request_version {
+}
+
+message response_version {
+  required string version = 1;
+}
+
+message request_stats {
+}
+
+message response_stats {
+  message requests_counters {
+    required string total_count = 1;
+    required string failed_count = 2;
+    required string error_count = 3;
+  }
+  required requests_counters requests = 1;
+}
