@@ -20,6 +20,9 @@
         'xcode_settings': {
           'ARCHS': [ 'x86_64' ]
         },
+      }],
+      ['OS != "win"', {
+        'cflags': [ '-std=c99' ],
       }]
     ],
     'configurations': {
