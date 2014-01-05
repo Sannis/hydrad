@@ -14,10 +14,10 @@ class HydraStatsMethodTestCase(HydraTestCase):
 
     def test_stats_rusage(self):
         response = self.makeRequest('stats', {})
-        self.assertTrue(response['data']['rusage']['rss'] > 0, "RSS exists")
-        self.assertTrue(response['data']['rusage']['ru_maxrss'] > 0, "Rusage max RSS exists")
-        self.assertTrue(response['data']['rusage']['ru_stime'] > 0, "Rusage stime exists")
-        self.assertTrue(response['data']['rusage']['ru_utime'] > 0, "Rusage utime exists")
+        self.assertTrue(response['data']['rusage']['rss'] > 0, "RSS exists and positive")
+        self.assertTrue(response['data']['rusage']['ru_maxrss'] > 0, "Rusage max RSS exists and positive")
+        self.assertTrue('ru_stime' in response['data']['rusage'], "Rusage stime exists")
+        self.assertTrue('ru_utime' in response['data']['rusage'], "Rusage utime exists")
 
     def test_stats_requests_total_count(self):
         self.makeRequest('version', {})
