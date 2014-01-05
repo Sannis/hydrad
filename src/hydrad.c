@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #include "util.h"
 #include "uv.h"
@@ -21,10 +22,12 @@
 #define HYDRAD_ERROR_LOW_MEMORY     1
 #define HYDRAD_ERROR_BAD_REQUEST    2
 #define HYDRAD_ERROR_UNKNOWN_METHOD 3
+#define HYDRAD_ERROR_SYSTEM         4
 
 static uv_loop_t *uv_loop;
 
 typedef struct {
+  double uptime_start;
   struct {
     unsigned int total_count;
     unsigned int failed_count;
@@ -64,11 +67,13 @@ void on_connection_close(uv_handle_t* handle);
 
 int main()
 {
-  hlog_info("Starting...");
-
+  // Populate default loop global variable
   uv_loop = uv_default_loop();
 
-  int err;
+  hlog_info("Starting...");
+  struct timeval uptime_start_timeval;
+  gettimeofday(&uptime_start_timeval, NULL);
+  H.uptime_start = (double)uptime_start_timeval.tv_sec + (double)uptime_start_timeval.tv_usec / 1e6;
 
   hlog_info("Init signal handler...");
   uv_signal_t signal;
@@ -78,6 +83,8 @@ int main()
   hlog_info("Init server...");
   uv_tcp_t server;
   uv_tcp_init(uv_loop, &server);
+
+  int err;
 
   struct sockaddr_in address;
   if ((err = uv_ip4_addr("0.0.0.0", HYDRAD_PORT, &address)) != 0) {
@@ -238,8 +245,54 @@ void process_request_version(req_res_t* req_res)
 
 void process_request_stats(req_res_t* req_res)
 {
+  // Get uptime
+  struct timeval uptime_current_timeval;
+  gettimeofday(&uptime_current_timeval, NULL);
+  double uptime = (double)uptime_current_timeval.tv_sec + (double)uptime_current_timeval.tv_usec / 1e6 - H.uptime_start;
+
+  // TODO: Code for Windows, pull-request to libuv
+  // http://stackoverflow.com/questions/5272470/c-get-cpu-usage-on-linux-and-windows
+  // http://stackoverflow.com/questions/669438/how-to-get-memory-usage-at-run-time-in-c
+
+  int err;
+
+  // Get RSS
+  size_t rss;
+  err = uv_resident_set_memory(&rss);
+  if (err != 0) {
+    send_error_response(req_res, HYDRAD_ERROR_SYSTEM, "Failed to get RSS");
+    return;
+  }
+
+  // Get rusage
+  struct rusage usage;
+  err = getrusage(RUSAGE_SELF, &usage);
+  if (err != 0) {
+    send_error_response(req_res, HYDRAD_ERROR_SYSTEM, "Failed to get rusage");
+    return;
+  }
+
   yajl_gen response_generator = yajl_gen_alloc(NULL);
   yajl_gen_map_open(response_generator);
+
+  // Uptime
+  yajl_gen_string(response_generator, (const unsigned char *)"uptime", strlen("uptime"));
+  yajl_gen_double(response_generator, uptime);
+
+  // Resources usage stats
+  yajl_gen_string(response_generator, (const unsigned char *)"rusage", strlen("rusage"));
+  yajl_gen_map_open(response_generator);
+  yajl_gen_string(response_generator, (const unsigned char *)"rss", strlen("rss"));
+  yajl_gen_integer(response_generator, rss);
+  yajl_gen_string(response_generator, (const unsigned char *)"ru_maxrss", strlen("ru_maxrss"));
+  yajl_gen_integer(response_generator, usage.ru_maxrss);
+  yajl_gen_string(response_generator, (const unsigned char *)"ru_stime", strlen("ru_stime"));
+  yajl_gen_double(response_generator, (double)usage.ru_stime.tv_sec + (double)usage.ru_stime.tv_usec / 1e6);
+  yajl_gen_string(response_generator, (const unsigned char *)"ru_utime", strlen("ru_utime"));
+  yajl_gen_double(response_generator, (double)usage.ru_utime.tv_sec + (double)usage.ru_utime.tv_usec / 1e6);
+  yajl_gen_map_close(response_generator);
+
+  // Requests stats
   yajl_gen_string(response_generator, (const unsigned char *)"requests", strlen("requests"));
   yajl_gen_map_open(response_generator);
   yajl_gen_string(response_generator, (const unsigned char *)"total_count", strlen("total_count"));
@@ -249,6 +302,7 @@ void process_request_stats(req_res_t* req_res)
   yajl_gen_string(response_generator, (const unsigned char *)"error_count", strlen("error_count"));
   yajl_gen_integer(response_generator, H.requests.error_count);
   yajl_gen_map_close(response_generator);
+
   yajl_gen_map_close(response_generator);
   {
     unsigned char *buf;
