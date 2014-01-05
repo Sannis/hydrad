@@ -18,4 +18,4 @@ Check out the [Github repo] for the source code.
 License
 -------
 
-MIT license. See license text in file [LICENSE](https://github.com/Sannis/node-pinba/blob/master/LICENSE).
+MIT license. See license text in file [LICENSE](https://github.com/Sannis/hydrad/blob/master/LICENSE).
