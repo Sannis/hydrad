@@ -1,6 +1,7 @@
 /* Hydra (c) 2013 Oleg Efimov */
 
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/time.h>
 
