@@ -5,6 +5,11 @@ message request_version {
 
 message response_version {
   required string version = 1;
+  optional string revision = 2;
+  message deps_t {
+    required string uv_version = 1;
+  }
+  required deps_t deps = 3;
 }
 
 message request_stats {

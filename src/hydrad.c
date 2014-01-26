@@ -228,10 +228,22 @@ void process_request(req_res_t* req_res)
 
 void process_request_version(req_res_t* req_res)
 {
+  const char* uv_version = uv_version_string();
+
   yajl_gen response_generator = yajl_gen_alloc(NULL);
   yajl_gen_map_open(response_generator);
+
+  // Hydrad version
   yajl_gen_string(response_generator, (const unsigned char *)"version", strlen("version"));
   yajl_gen_string(response_generator, (const unsigned char *)HYDRAD_VERSION, strlen(HYDRAD_VERSION));
+
+  // Dependencies version
+  yajl_gen_string(response_generator, (const unsigned char *)"deps", strlen("deps"));
+  yajl_gen_map_open(response_generator);
+  yajl_gen_string(response_generator, (const unsigned char *)"uv_version", strlen("uv_version"));
+  yajl_gen_string(response_generator, (const unsigned char *)uv_version, strlen(uv_version));
+  yajl_gen_map_close(response_generator);
+
   yajl_gen_map_close(response_generator);
   {
     unsigned char *buf;
