@@ -1,4 +1,3 @@
-
 # Specify BUILDTYPE=Release on the command line for a release build.
 BUILDTYPE ?= Release
 
@@ -27,5 +26,3 @@ clean:
 	rm -f ./hydrad
 
 .PHONY: test
-Window size: x 
-Viewport size: x
