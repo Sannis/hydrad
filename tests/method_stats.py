@@ -5,12 +5,12 @@ import time
 class HydraStatsMethodTestCase(HydraTestCase):
     def test_stats_uptime(self):
         response = self.makeRequest('stats', {})
-        self.assertTrue(response['data']['uptime'] > 0, "Uptime exists")
+        self.assertTrue(response['data']['uptime'] == 0, "Uptime exists")
 
-        time.sleep(0.5)
+        time.sleep(1)
 
         response = self.makeRequest('stats', {})
-        self.assertTrue(response['data']['uptime'] > 0.5, "Uptime increases")
+        self.assertTrue(response['data']['uptime'] >= 1, "Uptime increases")
 
     def test_stats_rusage(self):
         response = self.makeRequest('stats', {})
