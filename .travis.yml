@@ -2,5 +2,12 @@ language: c
 compiler:
   - clang
   - gcc
-install: make all
-script: make test
+before_install:
+  - ./.travis.before_install.sh
+install:
+  - ./autogen.sh
+  - ./configure
+  - make
+script:
+  - make cppcheck
+  - make test

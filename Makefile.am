@@ -10,3 +10,6 @@ SUBDIRS = src
 
 cppcheck:
 	cppcheck --enable=style src/hydrad.c src/buffer.h src/util.h --error-exitcode=2
+
+test:
+	python tests/all.py
