@@ -6,7 +6,7 @@ import socket
 import time
 
 
-daemon_relative_filename = '/../hydrad'
+daemon_relative_filename = '/../src/hydrad'
 daemon_version = '0.0.1-dev'
 daemon_port = 8888
 uv_version = '0.11.18-pre'

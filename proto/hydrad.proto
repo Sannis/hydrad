@@ -1,5 +1,10 @@
 package hydrad;
 
+message response_error {
+  required uint32 error_code = 1;
+  required string error_message = 2;
+}
+
 message request_version {
 }
 
@@ -22,11 +27,11 @@ message response_stats {
     required string failed_count = 2;
     required string error_count = 3;
   }
-  required rusage_t rusage = 2;
+  optional rusage_t rusage = 2;
   message requests_t {
     required string total_count = 1;
     required string failed_count = 2;
     required string error_count = 3;
   }
-  required requests_t requests = 3;
+  optional requests_t requests = 3;
 }

@@ -1,4 +1,10 @@
-/* Hydra (c) 2013 Oleg Efimov */
+/*
+ * Copyright (c) 2013-2016 Oleg Efimov <efimovov@gmail.com>
+ *
+ * hydrad is free software; you can redistribute it
+ * and/or modify it under the terms of the MIT license.
+ * See LICENSE for details.
+ */
 
 #include <stdio.h>
 #include <string.h>
@@ -6,10 +12,13 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+#include <uv.h>
+#include <protobuf2json.h>
+
 #include "util.h"
-#include "uv.h"
 #include "buffer.h"
-#include "yajl/yajl_gen.h"
+
+#include "hydrad.pb-c.h"
 
 #define HYDRAD_VERSION "0.0.1-dev"
 
@@ -93,7 +102,7 @@ int main()
     hlog_error("Wrong socket address: %s", uv_err_name(err));
     return HYDRAD_EXIT_ADDRESS;
   }
-  if ((err = uv_tcp_bind(&server, (struct sockaddr*)&address)) != 0) {
+  if ((err = uv_tcp_bind(&server, (struct sockaddr*)&address, 0)) != 0) {
     hlog_error("Cannot bind server: %s", uv_err_name(err));
     return HYDRAD_EXIT_BIND;
   }
@@ -230,29 +239,29 @@ void process_request_version(req_res_t* req_res)
 {
   const char* uv_version = uv_version_string();
 
-  yajl_gen response_generator = yajl_gen_alloc(NULL);
-  yajl_gen_map_open(response_generator);
+  Hydrad__ResponseVersion response_version = HYDRAD__RESPONSE_VERSION__INIT;
 
   // Hydrad version
-  yajl_gen_string(response_generator, (const unsigned char *)"version", strlen("version"));
-  yajl_gen_string(response_generator, (const unsigned char *)HYDRAD_VERSION, strlen(HYDRAD_VERSION));
+  response_version.version = HYDRAD_VERSION;
 
   // Dependencies version
-  yajl_gen_string(response_generator, (const unsigned char *)"deps", strlen("deps"));
+  // TODO: deps
+  /*yajl_gen_string(response_generator, (const unsigned char *)"deps", strlen("deps"));
   yajl_gen_map_open(response_generator);
   yajl_gen_string(response_generator, (const unsigned char *)"uv_version", strlen("uv_version"));
   yajl_gen_string(response_generator, (const unsigned char *)uv_version, strlen(uv_version));
   yajl_gen_map_close(response_generator);
+  */
 
-  yajl_gen_map_close(response_generator);
-  {
-    unsigned char *buf;
-    size_t len;
-
-    yajl_gen_get_buf(response_generator, (const unsigned char **)&buf, &len);
-    req_res->response_buffer = buffer_new_with_copy((char *)buf/*, len*/);
+  char *json_string;
+  int result = protobuf2json_string(&response_version.base, 0, &json_string, NULL, 0);
+  if (result != 0) {
+    send_error_response(req_res, HYDRAD_ERROR_SYSTEM, "Failed to serialize JSON");
+    return;
   }
-  yajl_gen_clear(response_generator);
+
+  req_res->response_buffer = buffer_new_with_copy(json_string/*, len*/);
+  free(json_string);
 
   send_response(req_res);
 }
@@ -286,15 +295,14 @@ void process_request_stats(req_res_t* req_res)
     return;
   }
 
-  yajl_gen response_generator = yajl_gen_alloc(NULL);
-  yajl_gen_map_open(response_generator);
+  Hydrad__ResponseStats response_stats = HYDRAD__RESPONSE_STATS__INIT;
 
   // Uptime
-  yajl_gen_string(response_generator, (const unsigned char *)"uptime", strlen("uptime"));
-  yajl_gen_double(response_generator, uptime);
+  response_stats.uptime = uptime;
 
   // Resources usage stats
-  yajl_gen_string(response_generator, (const unsigned char *)"rusage", strlen("rusage"));
+  // TODO
+  /*yajl_gen_string(response_generator, (const unsigned char *)"rusage", strlen("rusage"));
   yajl_gen_map_open(response_generator);
   yajl_gen_string(response_generator, (const unsigned char *)"rss", strlen("rss"));
   yajl_gen_integer(response_generator, rss);
@@ -304,10 +312,11 @@ void process_request_stats(req_res_t* req_res)
   yajl_gen_double(response_generator, (double)usage.ru_stime.tv_sec + (double)usage.ru_stime.tv_usec / 1e6);
   yajl_gen_string(response_generator, (const unsigned char *)"ru_utime", strlen("ru_utime"));
   yajl_gen_double(response_generator, (double)usage.ru_utime.tv_sec + (double)usage.ru_utime.tv_usec / 1e6);
-  yajl_gen_map_close(response_generator);
+  yajl_gen_map_close(response_generator);*/
 
   // Requests stats
-  yajl_gen_string(response_generator, (const unsigned char *)"requests", strlen("requests"));
+  // TODO
+  /*yajl_gen_string(response_generator, (const unsigned char *)"requests", strlen("requests"));
   yajl_gen_map_open(response_generator);
   yajl_gen_string(response_generator, (const unsigned char *)"total_count", strlen("total_count"));
   yajl_gen_integer(response_generator, H.requests.total_count);
@@ -315,17 +324,17 @@ void process_request_stats(req_res_t* req_res)
   yajl_gen_integer(response_generator, H.requests.failed_count);
   yajl_gen_string(response_generator, (const unsigned char *)"error_count", strlen("error_count"));
   yajl_gen_integer(response_generator, H.requests.error_count);
-  yajl_gen_map_close(response_generator);
+  yajl_gen_map_close(response_generator);*/
 
-  yajl_gen_map_close(response_generator);
-  {
-    unsigned char *buf;
-    size_t len;
-
-    yajl_gen_get_buf(response_generator, (const unsigned char **)&buf, &len);
-    req_res->response_buffer = buffer_new_with_copy((char *)buf/*, len*/);
+  char *json_string;
+  int result = protobuf2json_string(&response_stats.base, 0, &json_string, NULL, 0);
+  if (result != 0) {
+    send_error_response(req_res, HYDRAD_ERROR_SYSTEM, "Failed to serialize JSON");
+    return;
   }
-  yajl_gen_clear(response_generator);
+
+  req_res->response_buffer = buffer_new_with_copy(json_string/*, len*/);
+  free(json_string);
 
   send_response(req_res);
 }
@@ -334,21 +343,19 @@ void send_error_response(req_res_t* req_res, unsigned int error_code, char* erro
 {
   __sync_add_and_fetch(&H.requests.error_count, 1);
 
-  yajl_gen response_generator = yajl_gen_alloc(NULL);
-  yajl_gen_map_open(response_generator);
-  yajl_gen_string(response_generator, (const unsigned char *)"error_code", strlen("error_code"));
-  yajl_gen_integer(response_generator, error_code);
-  yajl_gen_string(response_generator, (const unsigned char *)"error_message", strlen("error_message"));
-  yajl_gen_string(response_generator, (const unsigned char *)error_message, strlen(error_message));
-  yajl_gen_map_close(response_generator);
-  {
-    unsigned char *buf;
-    size_t len;
+  Hydrad__ResponseError response_error = HYDRAD__RESPONSE_ERROR__INIT;
 
-    yajl_gen_get_buf(response_generator, (const unsigned char **)&buf, &len);
-    req_res->response_buffer = buffer_new_with_copy((char *)buf/*, len*/);
+  response_error.error_code = error_code;
+  response_error.error_message = error_message;
+
+  char *json_string;
+  int result = protobuf2json_string(&response_error.base, 0, &json_string, NULL, 0);
+  if (result != 0) {
+    // TODO: what to do?
   }
-  yajl_gen_clear(response_generator);
+
+  req_res->response_buffer = buffer_new_with_copy(json_string/*, len*/);
+  free(json_string);
 
   send_response(req_res);
 }
