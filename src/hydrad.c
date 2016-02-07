@@ -245,14 +245,14 @@ void process_request_version(req_res_t* req_res)
   response_version.version = HYDRAD_VERSION;
 
   // Dependencies version
-  // TODO: deps
-  /*yajl_gen_string(response_generator, (const unsigned char *)"deps", strlen("deps"));
-  yajl_gen_map_open(response_generator);
-  yajl_gen_string(response_generator, (const unsigned char *)"uv_version", strlen("uv_version"));
-  yajl_gen_string(response_generator, (const unsigned char *)uv_version, strlen(uv_version));
-  yajl_gen_map_close(response_generator);
-  */
+  Hydrad__ResponseVersion__DepsT deps = HYDRAD__RESPONSE_VERSION__DEPS_T__INIT;
 
+  deps.uv_version = (char *)calloc(sizeof(char), strlen(uv_version) + 1);
+  strcpy(deps.uv_version, uv_version);
+
+  response_version.deps = &deps;
+
+  // Response
   char *json_string;
   int result = protobuf2json_string(&response_version.base, 0, &json_string, NULL, 0);
   if (result != 0) {
@@ -298,34 +298,28 @@ void process_request_stats(req_res_t* req_res)
   Hydrad__ResponseStats response_stats = HYDRAD__RESPONSE_STATS__INIT;
 
   // Uptime
-  response_stats.uptime = uptime;
+  response_stats.uptime = (int)uptime;
 
   // Resources usage stats
-  // TODO
-  /*yajl_gen_string(response_generator, (const unsigned char *)"rusage", strlen("rusage"));
-  yajl_gen_map_open(response_generator);
-  yajl_gen_string(response_generator, (const unsigned char *)"rss", strlen("rss"));
-  yajl_gen_integer(response_generator, rss);
-  yajl_gen_string(response_generator, (const unsigned char *)"ru_maxrss", strlen("ru_maxrss"));
-  yajl_gen_integer(response_generator, usage.ru_maxrss);
-  yajl_gen_string(response_generator, (const unsigned char *)"ru_stime", strlen("ru_stime"));
-  yajl_gen_double(response_generator, (double)usage.ru_stime.tv_sec + (double)usage.ru_stime.tv_usec / 1e6);
-  yajl_gen_string(response_generator, (const unsigned char *)"ru_utime", strlen("ru_utime"));
-  yajl_gen_double(response_generator, (double)usage.ru_utime.tv_sec + (double)usage.ru_utime.tv_usec / 1e6);
-  yajl_gen_map_close(response_generator);*/
+  Hydrad__ResponseStats__RusageT rusage = HYDRAD__RESPONSE_STATS__RUSAGE_T__INIT;
+
+  rusage.rss = rss;
+  rusage.ru_maxrss = usage.ru_maxrss;
+  rusage.ru_stime = (double)usage.ru_stime.tv_sec + (double)usage.ru_stime.tv_usec / 1e6;
+  rusage.ru_utime = (double)usage.ru_utime.tv_sec + (double)usage.ru_utime.tv_usec / 1e6;
+
+  response_stats.rusage = &rusage;
 
   // Requests stats
-  // TODO
-  /*yajl_gen_string(response_generator, (const unsigned char *)"requests", strlen("requests"));
-  yajl_gen_map_open(response_generator);
-  yajl_gen_string(response_generator, (const unsigned char *)"total_count", strlen("total_count"));
-  yajl_gen_integer(response_generator, H.requests.total_count);
-  yajl_gen_string(response_generator, (const unsigned char *)"failed_count", strlen("failed_count"));
-  yajl_gen_integer(response_generator, H.requests.failed_count);
-  yajl_gen_string(response_generator, (const unsigned char *)"error_count", strlen("error_count"));
-  yajl_gen_integer(response_generator, H.requests.error_count);
-  yajl_gen_map_close(response_generator);*/
+  Hydrad__ResponseStats__RequestsT requests = HYDRAD__RESPONSE_STATS__REQUESTS_T__INIT;
 
+  requests.total_count = H.requests.total_count;
+  requests.failed_count = H.requests.failed_count;
+  requests.error_count = H.requests.error_count;
+
+  response_stats.requests = &requests;
+
+  // Response
   char *json_string;
   int result = protobuf2json_string(&response_stats.base, 0, &json_string, NULL, 0);
   if (result != 0) {
