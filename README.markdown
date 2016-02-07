@@ -1,5 +1,5 @@
-Hydra daemon [![Build status][Build status image]][Build status URL]
-====================================================================
+Hydra daemon [![BS][BSI]][BSURL] [![CS][CSI]][CSURL]
+====================================================
 
 Proof-of-concept [libuv] daemon for running other programs.
 
@@ -7,8 +7,11 @@ Proof-of-concept [libuv] daemon for running other programs.
 
 Check out the [Github repo] for the source code.
 
-[Build status image]: https://secure.travis-ci.org/Sannis/hydrad.png?branch=master
-[Build status URL]: http://travis-ci.org/Sannis/hydrad
+[BSI]: https://secure.travis-ci.org/Sannis/hydrad.png?branch=master
+[BSURL]: http://travis-ci.org/Sannis/hydrad
+
+[CSI]: https://coveralls.io/repos/Sannis/hydrad/badge.png
+[CSURL]: https://coveralls.io/r/Sannis/hydrad
 
 [libuv]: https://github.com/joyent/libuv
 [Travis CI]: http://travis-ci.org

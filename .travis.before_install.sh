@@ -24,10 +24,14 @@ echo "Updating repositories and install some tools..."
 if [ "x$TRAVIS_OS_NAME" = "xosx" ]; then
 	brew update
 	brew install cppcheck
+	if [ "x$MY_VALGRIND" = "x1" ]; then brew install valgrind; fi
 else # linux
 	sudo add-apt-repository --yes ppa:pi-rho/security
 	sudo apt-get update
 	sudo apt-get install cppcheck
+	if [ "x$MY_VALGRIND" = "x1" ]; then sudo apt-get install valgrind; fi
+	if [ "x$MY_COVERAGE" = "x1" ]; then sudo apt-get install lcov; fi
+	if [ "x$MY_COVERAGE" = "x1" ]; then sudo pip install cpp-coveralls; fi
 fi
 
 echo "Installing protobuf..."

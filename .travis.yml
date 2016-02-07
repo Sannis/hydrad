@@ -8,7 +8,7 @@ env:
   - MY_SANITIZE=undefined
   - MY_SANITIZE=integer
   - MY_VALGRIND=1
-  #- MY_COVERAGE=1
+  - MY_COVERAGE=1
 matrix:
   exclude:
     # Pairs because of some comilers does not support some features at all
@@ -20,8 +20,8 @@ matrix:
       env: MY_SANITIZE=integer
     - compiler: clang
       env: MY_VALGRIND=1
-    #- compiler: clang
-    #  env: MY_COVERAGE=1
+    - compiler: clang
+      env: MY_COVERAGE=1
 before_install:
   - ./.travis.before_install.sh
 install:
@@ -31,3 +31,5 @@ install:
 script:
   - make cppcheck
   - make test
+after_success:
+  - if [ "x$MY_COVERAGE" = "x1" ]; then cpp-coveralls --build-root src --exclude src/.libs --gcov-options '\-lp'; fi

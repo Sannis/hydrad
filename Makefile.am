@@ -11,5 +11,8 @@ SUBDIRS = src
 cppcheck:
 	cppcheck --enable=style src/hydrad.c src/buffer.h src/util.h --error-exitcode=2
 
-test:
-	python tests/all.py
+test: check
+	@MY_VALGRIND_EXEC_PREFIX@python tests/all.py
+
+MY_COVERAGE_DIRECTORY = $(abs_top_builddir)/src
+@MY_COVERAGE_RULES@
